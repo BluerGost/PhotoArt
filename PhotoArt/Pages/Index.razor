@@ -1,0 +1,67 @@
+﻿@page "/"
+@inject IConfiguration config
+
+<PageTitle>Upload picture</PageTitle>
+
+<h1>Upload picture</h1>
+
+<InputFile OnChange="@LoadFilesAsync" 
+class="form-control"
+multiple accept=".png, .jpg, .jpeg"/>
+
+@if (errors.Count > 0)
+{
+        <h2>Errors</h2>
+        <ul class="text-danger">
+        @foreach (var error in errors)
+        {
+            <li>@error</li>
+        }
+        </ul>
+}
+
+@code {
+
+    // Unit in bytes
+    private long maxFileSize = 1024 * 1024 * 3; // represents 3MB
+    private int maxAllowedFiles = 3;
+    private List<string> errors = new();
+
+    private async Task LoadFilesAsync(InputFileChangeEventArgs e)
+    {
+        errors.Clear();
+
+        if (e.FileCount > maxAllowedFiles)
+        {
+            errors.Add($"Error: Attempting to upload {e.FileCount} files, but only {maxAllowedFiles} files are allowed");
+            return;
+        }
+
+        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        {
+            try
+            {
+                string newFileName = Path.ChangeExtension(
+                    Path.GetRandomFileName(),
+                    Path.GetExtension(file.Name));
+
+                var baseStoragePath = config.GetValue<string>("FileStorage");
+
+                var userStoragePath = Path.Combine(baseStoragePath, "kevin");
+
+                var filePath = Path.Combine(
+                    userStoragePath,
+                    newFileName);
+
+                Directory.CreateDirectory(userStoragePath);
+
+                await using FileStream fs = new(filePath, FileMode.Create);
+                await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"File: {file.Name} Error: {ex.Message}");
+            }
+        }
+    }
+}
